@@ -251,7 +251,9 @@
     <button class="tab-btn" onclick="switchTab('add',this)">+ Añadir</button>
   </div>
   <div class="nav-right">
+    <span id="saveIndicator" style="font-size:.72rem;transition:opacity .5s;opacity:0;white-space:nowrap"></span>
     <button class="icon-btn" onclick="exportCSV()">⬇ CSV</button>
+    <button class="icon-btn" onclick="clearLocal()" title="Borrar datos guardados" style="color:var(--red)">🗑</button>
     <button class="icon-btn" id="themeBtn" onclick="toggleTheme()">☀️ Claro</button>
   </div>
 </nav>
@@ -1687,12 +1689,68 @@ function updateCanAfford() {
     </div>`;
 }
 
+// ── LOCAL STORAGE ────────────────────────────────────────────────────────
+const STORAGE_KEY = 'finances_au_data';
+
+function saveToLocal() {
+  try {
+    const payload = {
+      data, retos, tlEvents, budgets, monthHours,
+      savedAt: new Date().toISOString()
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    showSaveIndicator();
+  } catch(e) { console.error('Error guardando:', e); }
+}
+
+function loadFromLocal() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const payload = JSON.parse(raw);
+    if (payload.data)       { data.months = payload.data.months; }
+    if (payload.retos)      retos     = payload.retos;
+    if (payload.tlEvents)   Object.assign(tlEvents, payload.tlEvents);
+    if (payload.budgets)    Object.assign(budgets, payload.budgets);
+    if (payload.monthHours) Object.assign(monthHours, payload.monthHours);
+    return payload.savedAt;
+  } catch(e) { console.error('Error cargando:', e); return false; }
+}
+
+function clearLocal() {
+  if (!confirm('¿Seguro que quieres borrar todos los datos guardados? Volverás al estado inicial.')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  location.reload();
+}
+
+function showSaveIndicator() {
+  const el = document.getElementById('saveIndicator');
+  if (!el) return;
+  el.textContent = '✓ Guardado';
+  el.style.color = 'var(--green)';
+  el.style.opacity = '1';
+  setTimeout(() => { el.style.opacity = '0'; }, 2000);
+}
+
+// Auto-save on any data change — wrap renderAll
+const _renderAll = renderAll;
+renderAll = function() {
+  _renderAll();
+  saveToLocal();
+};
+
 // ── INIT ──────────────────────────────────────────────────────────────────
 document.getElementById('addDate').value = new Date().toISOString().split('T')[0];
+const savedAt = loadFromLocal();
 renderAll();
 updateSimulator();
 renderBudgetSelect();
 renderRetoSelects();
+if (savedAt) {
+  const d = new Date(savedAt);
+  const el = document.getElementById('saveIndicator');
+  if (el) { el.textContent = 'Cargado: ' + d.toLocaleDateString('es-ES', {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}); el.style.opacity='1'; el.style.color='var(--muted)'; }
+}
 </script>
 </body>
 </html>
